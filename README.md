@@ -28,11 +28,23 @@ docker compose exec -T backend python -m scripts.seed_demo
 
 SEED_DEMO=true自动建表并填充，固定ID/自然键幂等，不重复插入、不覆盖用户修改。seed2304生成12条模拟备选航段和4指标：模拟费用（万元）、时长（小时）、准班率（%）、可用舱位（TEU）。一致性基线权重为.35/.25/.25/.15，另保留循环矛盾矩阵供真实警告演示；一致基线含完成运行、人工复核和归档。不存在真实航行数据。
 
-## 六实体与页面
+## 实体与页面
 
-AlternativeDataset保存方案/指标定义/数值；CriteriaSet固定指标顺序与cost/benefit方向；JudgmentMatrix保存原始矩阵、CR阈值和扰动比例，参数列为MySQL DOUBLE；DecisionRun由Redis独立worker计算并持久化状态与结果；ChoiceReview保存判断依据及高CR警告确认；Report在最新人工复核accepted后由admin批准，run唯一。
+AlternativeDataset保存方案/指标定义/数值与当前版本号；DatasetVersion为每次导入或补报生成的不可变快照链（v1基线起递增）；MetricSupplement保存按航段批量补报的批次、幂等键、内容指纹与受理状态；CriteriaSet固定指标顺序与cost/benefit方向；JudgmentMatrix保存原始矩阵、CR阈值和扰动比例，参数列为MySQL DOUBLE；DecisionRun由Redis独立worker计算，排队时钉住当时最新方案快照（dataset_version_id）并持久化状态与结果；ChoiceReview保存判断依据及高CR警告确认；Report在最新人工复核accepted后由admin批准，run唯一。
 
-六业务页：航册总览、备选航段、指标方向、成对判断、排序与敏感性、权衡复核（含操作留痕）。展示真实权重条、原矩阵、排名表、优/劣理想点距离散点与扰动名次线段。矩阵表显示3位小数，悬停可见完整原值，数据库与运行结果保存完整JSON；没有静默修复矩阵的路径。手机布局保留退出和只读账号功能。
+### 航段费用补报与版本规则
+
+`POST /datasets/supplements` 按航段编号（alternative_id）批量补报指标，请求含 dataset_id、base_version、idempotency_key 与 items（每航段须给全部指标）。规则：
+
+- 整批原子：批次内出现未知航段、缺失指标、未定义指标、非有限/越界数值或航段编号重复，返回422且无任何写入；
+- 乐观并发：base_version 不是当前最新版本时返回409拒绝受理，不覆盖并发修改；
+- 幂等：相同 idempotency_key 重复投递只回放首次受理结果（replayed=true），不新增版本；相同内容指纹（dataset+base+items）同样回放；合并后无实际变化不产生空版本；
+- 受理后深拷贝合并为新 DatasetVersion（version_no+1），同步活表与 current_version，旧快照永不回溯修改；
+- 可通过 `GET /datasets/{id}/versions`、`/versions/{no}`、`/supplements` 查询各版指标快照与补报批次留痕，备选航段页可切换版本对照。
+
+计算口径与版本还原：新发起的 DecisionRun 采用最新方案集快照；已排队/运行中的任务、历史排名与归档报告始终按发起时钉住的快照还原，worker 从快照而非活表取数，快照缺失则置 failed 不输出伪结果；结果 JSON 含 version 元数据，checksum 纳入版本号。页面排序记录下拉与结果区显示每条运行钉住的版本。
+
+六业务页：航册总览、备选航段（含版本切换与批量补报）、指标方向、成对判断、排序与敏感性、权衡复核（含操作留痕）。展示真实权重条、原矩阵、排名表、优/劣理想点距离散点与扰动名次线段。矩阵表显示3位小数，悬停可见完整原值，数据库与运行结果保存完整JSON；没有静默修复矩阵的路径。手机布局保留退出和只读账号功能。
 
 ## 两类算法与判断规则
 
@@ -75,6 +87,6 @@ frontend/src含api/stores/types/components/common/hooks/pages/router/utils/const
 
 ## 已知边界
 
-CR阈值与RI表明确声明，不能据此判断实际航行安全。TOPSIS允许指标间补偿，排序依赖当前方案集合、归一和权重，不能当作客观最优路线。单权重扰动不是全局敏感性或概率分析；未做联合扰动和随机模拟。JSON表单导入，无CSV解析器。单worker启动恢复queued/running，无分布式租约；初次由SQLAlchemy建表，无生产迁移回滚。Google Fonts使用Noto Sans SC/ZCOOL XiaoWei，不可访问时字体回退。开发密钥和演示账号只供本地模拟。
+CR阈值与RI表明确声明，不能据此判断实际航行安全。TOPSIS允许指标间补偿，排序依赖当前方案集合、归一和权重，不能当作客观最优路线。单权重扰动不是全局敏感性或概率分析；未做联合扰动和随机模拟。JSON表单导入，无CSV解析器。单worker启动恢复queued/running，无分布式租约；初次由SQLAlchemy建表，版本化新增列由启动时幂等ALTER补齐（src/config/compat.py），无生产迁移回滚。Google Fonts使用Noto Sans SC/ZCOOL XiaoWei，不可访问时字体回退。开发密钥和演示账号只供本地模拟。
 
 MIT License。

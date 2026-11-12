@@ -8,4 +8,5 @@ class AlternativeDataset(Base):
  source:Mapped[str]=mapped_column(String(160))
  columns:Mapped[list]=mapped_column(JSON)
  alternatives:Mapped[list]=mapped_column(JSON)
+ current_version:Mapped[int]=mapped_column(Integer,default=1)
  created_at:Mapped[str]=mapped_column(String(64))

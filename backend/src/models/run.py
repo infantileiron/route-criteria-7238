@@ -5,6 +5,7 @@ class DecisionRun(Base):
  __tablename__="decision_runs"
  id:Mapped[str]=mapped_column(String(80),primary_key=True)
  judgment_id:Mapped[str]=mapped_column(ForeignKey("judgment_matrices.id"))
+ dataset_version_id:Mapped[str]=mapped_column(String(80),default="")
  status:Mapped[str]=mapped_column(String(30))
  result:Mapped[dict]=mapped_column(JSON,default=dict)
  error:Mapped[str]=mapped_column(Text,default="")

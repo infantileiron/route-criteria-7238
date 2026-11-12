@@ -4,11 +4,13 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from src.config.database import engine
 from src.config.settings import SEED_DEMO,REDIS_URL
+from src.config.compat import ensure_schema
 from src.middlewares.errors import ErrorMiddleware
 from src.middlewares.audit import AuditMiddleware
-from src.routes import auth,datasets,criteria,judgments,runs,reviews,reports,audit
+from src.routes import auth,datasets,supplements,criteria,judgments,runs,reviews,reports,audit
 @asynccontextmanager
 async def lifespan(app):
+ ensure_schema()
  if SEED_DEMO:
   try:
    from scripts.seed_demo import seed
@@ -17,7 +19,7 @@ async def lifespan(app):
  yield
 app=FastAPI(title="岩舟 · 备选航段多指标权衡",lifespan=lifespan)
 app.add_middleware(AuditMiddleware);app.add_middleware(ErrorMiddleware)
-for module in (auth,datasets,criteria,judgments,runs,reviews,reports,audit):app.include_router(module.router)
+for module in (auth,datasets,supplements,criteria,judgments,runs,reviews,reports,audit):app.include_router(module.router)
 @app.get("/health")
 def health():
  with engine.connect() as db:db.execute(text("SELECT 1"))

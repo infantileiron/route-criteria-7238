@@ -1,5 +1,7 @@
 from .user import User
 from .dataset import AlternativeDataset
+from .dataset_version import DatasetVersion
+from .supplement import MetricSupplement
 from .criteria import CriteriaSet
 from .judgment import JudgmentMatrix
 from .run import DecisionRun

@@ -3,7 +3,7 @@ import redis,traceback
 from sqlalchemy import select
 from src.config.settings import REDIS_URL
 from src.config.database import Session
-from src.models import DecisionRun,JudgmentMatrix,CriteriaSet,AlternativeDataset
+from src.models import DecisionRun,JudgmentMatrix,CriteriaSet,DatasetVersion
 from src.services.analysis import analyze
 client=redis.Redis.from_url(REDIS_URL);heartbeat=Path("/artifacts/worker-heartbeat")
 def execute(id):
@@ -12,8 +12,10 @@ def execute(id):
   if not run or run.status not in ("queued","running"):return
   run.status="running";db.commit()
   try:
-   judgment=db.get(JudgmentMatrix,run.judgment_id);criteria=db.get(CriteriaSet,judgment.criteria_set_id);dataset=db.get(AlternativeDataset,criteria.dataset_id)
-   run.result=analyze(dataset,criteria,judgment);run.status="completed"
+   judgment=db.get(JudgmentMatrix,run.judgment_id);criteria=db.get(CriteriaSet,judgment.criteria_set_id)
+   snapshot=db.get(DatasetVersion,run.dataset_version_id)
+   if not snapshot:raise ValueError("运行所钉住的方案版本快照已不存在，无法按发起时版本还原")
+   run.result=analyze(snapshot,criteria,judgment);run.status="completed"
   except Exception as e:run.error=str(e);run.status="failed";traceback.print_exc()
   db.commit()
 with Session() as db:
