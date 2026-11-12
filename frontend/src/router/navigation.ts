@@ -1,0 +1,1 @@
+export const navigation=[{id:'overview',label:'航册总览',code:'01'},{id:'datasets',label:'备选航段',code:'02'},{id:'criteria',label:'指标方向',code:'03'},{id:'judgments',label:'成对判断',code:'04'},{id:'results',label:'排序与敏感性',code:'05'},{id:'reviews',label:'权衡复核',code:'06'}];
